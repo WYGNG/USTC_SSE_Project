@@ -114,7 +114,7 @@ class BaseDetector(object):
       pre_time += pre_process_time - scale_start_time
       
       output, dets, forward_time = self.process(images, return_time=True)
-
+      #print("########################",type(output))
       torch.cuda.synchronize()
       net_time += forward_time - pre_process_time
       decode_time = time.time()
@@ -131,14 +131,16 @@ class BaseDetector(object):
       detections.append(dets)
     
     results = self.merge_outputs(detections)
+    #print("##############################",results)
+    #print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",image)
     torch.cuda.synchronize()
     end_time = time.time()
     merge_time += end_time - post_process_time
     tot_time += end_time - start_time
-
+    print("1")
     if self.opt.debug >= 1:
       self.show_results(debugger, image, results)
-    
+    print("2")
     return {'results': results, 'tot': tot_time, 'load': load_time,
             'pre': pre_time, 'net': net_time, 'dec': dec_time,
             'post': post_time, 'merge': merge_time}

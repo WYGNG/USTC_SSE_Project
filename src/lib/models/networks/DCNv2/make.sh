@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PATH=$PATH:/usr/local/cuda/bin
 cd src/cuda
 
 # compile dcn

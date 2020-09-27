@@ -5,6 +5,15 @@ from __future__ import print_function
 import numpy as np
 import cv2
 from .ddd_utils import compute_box_3d, project_to_image, draw_box_3d
+import time
+import math
+#
+
+import skimage.io as io
+import tkinter.filedialog
+from tkinter import *
+from PIL import Image,ImageTk
+
 
 class Debugger(object):
   def __init__(self, ipynb=False, theme='black', 
@@ -168,7 +177,7 @@ class Debugger(object):
       cv2.circle(self.imgs[img_id], (rect1[0], rect2[1]), int(10 * conf), c, 1)
       cv2.circle(self.imgs[img_id], (rect2[0], rect1[1]), int(10 * conf), c, 1)
 
-  def add_coco_bbox(self, bbox, cat, conf=1, show_txt=True, img_id='default'): 
+  def add_coco_bbox(self, bbox, cat, conf=1, show_txt=True, img_id='default'):
     bbox = np.array(bbox, dtype=np.int32)
     # cat = (int(cat) + 1) % 80
     cat = int(cat)
@@ -188,16 +197,73 @@ class Debugger(object):
       cv2.putText(self.imgs[img_id], txt, (bbox[0], bbox[1] - 2), 
                   font, 0.5, (0, 0, 0), thickness=1, lineType=cv2.LINE_AA)
 
+#计算角度
+  def get_angle(self,x1,y1,x2,y2,x3,y3):
+    a=math.sqrt((x2-x3)**2+(y2-y3)**2)
+    b=math.sqrt((x1-x3)**2+(y1-y3)**2)
+    c=math.sqrt((x2-x1)**2+(y2-y1)**2)
+    if c*b==0:
+      cosA=1
+    else:
+      cosA=(a**2-c**2-b**2)/(-2*c*b)
+    if cosA < -1.0:
+      cosA=-1.0
+    elif cosA>1.0:
+      cosA=1.0
+    A=math.acos(cosA)
+    deg=math.degrees(A)
+    return deg
+    
   def add_coco_hp(self, points, img_id='default'): 
+    
     points = np.array(points, dtype=np.int32).reshape(self.num_joints, 2)
     for j in range(self.num_joints):
       cv2.circle(self.imgs[img_id],
                  (points[j, 0], points[j, 1]), 3, self.colors_hp[j], -1)
+      #print(j,":","x:",points[j,0],"y:",points[j,1])
+    xcenter=(points[11,0]+points[12,0])/2
+    ycenter=(points[11,1]+points[12,1])/2
+    #print("center:","xc:",xcenter,"yc:",ycenter)
+    lleg=points[15]
+    rleg=points[16]
+    leye=points[11]
+    reye=points[12]
+    dis1=abs(lleg[1]-leye[1])  #左眼和左脚的y方向差距
+    dis2=abs(rleg[1]-rleg[1])
+    dis3=math.sqrt((points[11,0]-points[12,0])**2+(points[11,1]-points[12,1])**2) #髋关节距离
+    if(dis1<dis3):
+      print("跌倒了！")
+    else:
+      print("未跌倒！")
+#下面是各关节点到中心点的距离，势能场
+    #distance={}
+    #field=0
+    #for j in range(self.num_joints):
+      #distance[j]=math.sqrt((points[j, 0]-xcenter)**2+(points[j, 1]-ycenter)**2)
+      #field = field +distance[j]
+    #print(distance)
     for j, e in enumerate(self.edges):
       if points[e].min() > 0:
         cv2.line(self.imgs[img_id], (points[e[0], 0], points[e[0], 1]),
                       (points[e[1], 0], points[e[1], 1]), self.ec[j], 2,
                       lineType=cv2.LINE_AA)
+       #定义过的起点，终点坐标，连线。
+    A8=self.get_angle(points[8,0],points[8,1],points[6,0],points[6,1],points[10,0],points[10,1])
+    A7=self.get_angle(points[7,0],points[7,1],points[5,0],points[5,1],points[9,0],points[9,1])
+    A6=self.get_angle(points[6,0],points[6,1],points[8,0],points[8,1],points[12,0],points[12,1])
+    A5=self.get_angle(points[5,0],points[5,1],points[7,0],points[7,1],points[11,0],points[11,1])
+    A12=self.get_angle(points[12,0],points[12,1],points[14,0],points[14,1],points[11,0],points[11,1])
+    A11=self.get_angle(points[11,0],points[11,1],points[13,0],points[13,1],points[12,0],points[12,1])
+    A14=self.get_angle(points[14,0],points[14,1],points[16,0],points[16,1],points[12,0],points[12,1])
+    A13=self.get_angle(points[13,0],points[13,1],points[15,0],points[15,1],points[11,0],points[11,1])
+    # print("rshoulder_A6",A6)
+    # print("lshoulder_A5",A5)
+    # print("rleg_A8",A8)
+    # print("lleg_A7",A7)
+    # print("rhip_A12",A12)
+    # print("lhip_A11",A11)
+    # print("rknee_A14",A14)
+    # print("lknee_A13",A13)
 
   def add_points(self, points, img_id='default'):
     num_classes = len(points)
@@ -212,11 +278,15 @@ class Debugger(object):
                                        points[i][j][1] * self.down_ratio),
                    3, (int(c[0]), int(c[1]), int(c[2])), -1)
 
-  def show_all_imgs(self, pause=False, time=0):
+  def show_all_imgs(self, pause=False):
+      #pass
     if not self.ipynb:
       for i, v in self.imgs.items():
+        #last=time.time()
         cv2.imshow('{}'.format(i), v)
-      if cv2.waitKey(0 if pause else 1) == 27:
+        #print("#################################################################")
+          #把下面屏蔽了可以连着放
+      if cv2.waitKey(2 if pause else 1) == 27:
         import sys
         sys.exit(0)
     else:
